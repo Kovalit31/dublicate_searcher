@@ -47,7 +47,7 @@ def get_sha(src, hash_type=1):
 
 def get_hashsum(src, type="sha", number=1, blake_char="s"):
     if type == "sha":
-        return get_sha(src, number)
+        return get_sha(src, hash_type=number)
     elif type == "md5":
         return None
     elif type == "sha3":
