@@ -1,25 +1,58 @@
-# ini parser
 import os
-from . import default
-from .default import config
+import importlib
 
+def importer(module_path: str, package=__package__):
+    '''
+    Import module with importlib and returns:
+    [1, module], if Sucessfull
+    [0] if Fail
+    '''
+    try:
+        module = importlib.import_module(module_path, package)
+        return [1, module]
+    except:
+        return [0]
 
-def create_default_config():
-    global config
+def understood_config(path_config: str):
+    '''
+    Getting to understand config with first line
+    Example, if config starting with "###ini###"
+    it tells, this is "ini" config
+    '''
+    try:
+        with open() as f:
+            pass
+    except:
+        pass
+
+def get_default(default, config_string):
+    pass
+
+def _create_default_config_ini(default, collection=None, legacy=1):
+    '''
+    Creates default config with ini markup
+    '''
     try:
         os.makedirs(default.DEFAULT_CONFIG_DIR)
     except:
         pass
     try:
-        text = "# Config\n"
+        text = "###ini###\n# Config\n"
         # Except, if config lenght is less than 2
-        if len(config) < 2:
-            raise Exception("Default config is writed incorrectly, skipping")
+        if len(default.config) < 2:
+            if legacy:
+                raise Exception("Default config is writed incorrectly, skipping")
+            else:
+                collection.exceptor("Default config is writed incorrect!")
         
         # Parsing arrays
-        sections_names_arr = config[0]
-        sections_vars_arr = config[1]
-        sections_helps_arr = [config[2] if len(config) > 2 else []]
+        sections_names_arr = default.config[0]
+        sections_vars_arr = default.config[1]
+        sections_helps_arr = []
+        if len(default.config) > 2:
+            sections_helps_arr = default.config[2]
+        else:
+            sections_helps_arr = []
         
         # Lengths of arrays
         sections_names_arr_len = len(sections_names_arr)
@@ -43,16 +76,28 @@ def create_default_config():
         # Section mapping
         for x in range(sections_names_enum):
             # Define variabes for current section
-            section_name = config[0][x]
-            section_vars_arr = config[1][x]
+            section_name = sections_names_arr[x]
+            section_vars_arr = sections_vars_arr[x]
             section_help = ""
-            if sections_helps_enum >= x + 1 and len(config) > 2:
-                section_help = config[2][x]
+            if sections_helps_enum >= x + 1:
+                section_help = sections_helps_arr[x]
             else:
                 section_help = False
             
             # Adding initial lines for section (ini)
-            text += "[" + section_name.upper() + "]\n"
+            if not legacy:
+                collection.debugger("Contactation at x", [x])
+            if type(section_name) == str:
+                text += "[" + section_name.upper() + "]\n"
+            elif not type(section_name) == int or not type(section_name) == bool:
+                text += "[" + "/".join(section_name).upper() + "]\n"
+            else:
+                if not legacy:
+                    collection.exceptor("Config writed incorrectly!")
+                else:
+                    raise Exception("Config writed incorrectly!")
+            if not legacy:
+                collection.debugger("Contactation at x", [x, section_help])
             if section_help:
                 text += "# " + section_help + "\n"
             
@@ -86,17 +131,90 @@ def create_default_config():
                 section_vars_helps_enum = section_vars_names_len
             
             for y in range(len(section_vars_arr[section_vars_names_enum])):
-                if not type(config[1][x][1][y]) == str:
-                    text += str(config[1][x][0][y]).upper() + " = " + str(config[1][x][1][y]) + "\n"
+                if not legacy:
+                    collection.debugger("Contactation at y", [x, y])
+                if not type(section_vars_arr[1][y]) == str:
+                    text += str(section_vars_arr[0][y]).upper() + " = " + str(section_vars_arr[1][y]) + "\n"
                 else:
-                    text += str(config[1][x][0][y]).upper() + " = \"" + config[1][x][1][y] + "\"\n"
-        with open(os.path.join(default.DEFAULT_CONFIG_DIR, default.DEFAULT_CONFIG_NAME), "x") as f:
-            f.write(text)
-            f.close()
-        return 0
+                    text += str(section_vars_arr[0][y]).upper() + " = \"" + section_vars_arr[1][y] + "\"\n"
+        try:
+            with open(os.path.join(default.DEFAULT_CONFIG_DIR, default.DEFAULT_CONFIG_NAME), "x") as f:
+                f.write(text)
+                f.close()
+        except:
+            if not legacy:
+                collection.debugger("Config already exists")
+        return True
     except Exception as e:
         print(e)
-        return 1
+        return False
+
+def create_default_config(default_config_module_path=".default", default_config_package=None):
+    '''
+    Main "head", what is working with _create_default_config_<type>
+    '''
+    legacy = 0
+    arr = importer(".collections")
+    if arr[0]:
+        collection = arr[1]
+    else:
+        legacy = 1
+    del(arr)
+    arr = importer(default_config_module_path, package=default_config_package)
+    if arr[0]:
+        default = arr[1]
+    else:
+        if not legacy:
+            collection.exceptor("Cannot load default configuration: setting passed incorrectly", type="ImportError", thread="config/create_default_config")
+        else:
+            raise ImportError("Cannot load default configuration: setting passed incorrectly")
+    del(arr)
+    answer = None
+    if default.DEFAULT_CONFIG_TYPE == "ini":
+        answer = _create_default_config_ini(default, collection, legacy)
+    if answer == False:
+        if os.path.exists(os.path.join(default.DEFAULT_CONFIG_DIR, default.DEFAULT_CONFIG_NAME)) and not os.path.isdir(os.path.join(default.DEFAULT_CONFIG_DIR, default.DEFAULT_CONFIG_NAME)):
+            if not legacy:
+                collection.debugger("Cannot create config: it exists", thread="config/create_default_config")
+        else:
+            if not legacy:
+                collection.exceptor("Error with creating config!", type="ConfigError", thread="config/create_default_config")
+            else:
+                raise Exception("Error with creating config!")
+
+def _read_default_config_ini(section: str, setting: str, default, collection=None, legacy=1):
+    pass
+
+def read_default_config(config_string: str, default_config_module_path=".default", default_config_package=None):
+    '''
+    Main "head", what works with _read_default_config_<type>
+    '''
+    legacy = 0
+    arr = importer(".collections")
+    if arr[0]:
+        collection = arr[1]
+    else:
+        legacy = 1
+    del(arr)
+    arr = importer(default_config_module_path, package=default_config_package)
+    if arr[0]:
+        default = arr[1]
+    else:
+        if not legacy:
+            collection.exceptor("Cannot load default configuration: setting passed incorrectly", type="ImportError", thread="config/create_default_config")
+        else:
+            raise ImportError("Cannot load default configuration: setting passed incorrectly")
+    del(arr)
+    answer = None
+    if default.DEFAULT_CONFIG_TYPE == "ini":
+        section, setting, *other = config_string.lstrip().rstrip().split(".")
+        answer = _read_default_config_ini(section, setting, default, collection=collection, legacy=legacy)
+    if answer == None:
+        if not legacy:
+            collection.debugger(f"No config string found: {config_string}")
+
+def update_default_config():
+    pass
 # Test
 if __name__ == "__main__":
     create_default_config()
