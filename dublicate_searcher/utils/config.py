@@ -2,8 +2,9 @@ import os
 import sys
 import importlib
 import importlib.util
+from types import ModuleType
 
-def importer(module_path: str, name: str, package=__package__):
+def _frozen_importer(module_path: str, name: str, package=__package__):
     '''
     Import module from path with importlib and returns:
     [1, module], if Sucessfull
@@ -19,6 +20,39 @@ def importer(module_path: str, name: str, package=__package__):
         print(e)
         return [0]
 
+def _import_necessary(default_config_module_path: str):
+    legacy = 0
+    arr = _frozen_importer(os.path.join(os.path.dirname(__file__), "collections.py"), 'collection')
+    if arr[0]:
+        collection = arr[1]
+    else:
+        legacy = 1
+        collection = None
+    del(arr)
+    arr = _frozen_importer(default_config_module_path, "default")
+    if arr[0]:
+        default = arr[1]
+    else:
+        try:
+            os.makedirs(os.path.join(os.path.dirname(__file__), "config_data"))
+        except:
+            if not legacy:
+                collection.debugger("Cannot create dir '{0}': File exists".format(os.path.join(os.path.dirname(__file__), "config_data")))
+        try:
+            with open(default_config_module_path, "x") as f:
+                f.close()
+        except:
+            if not legacy:
+                collection.exceptor()
+            else:
+                raise Exception()
+        if not legacy:
+            collection.exceptor(f"Cannot load default configuration: setup new configuration in '{default_config_module_path}' at yourself", type="ImportError", thread="config/create_default_config")
+        else:
+            raise ImportError(f"Cannot load default configuration: setup new configuration in '{default_config_module_path}' at yourself")
+    del(arr)
+    return default, collection, legacy
+
 def understood_config(path_config: str):
     '''
     Getting to understand config with first line
@@ -31,8 +65,20 @@ def understood_config(path_config: str):
     except:
         pass
 
-def get_default(default, config_string):
-    pass
+def get_default(default, config_string: str):
+    section, setting = config_string.split(".").lower()
+    save = 0
+    for x in range(len(default.config[0])):
+        if default.config[0][x] == section.lower():
+            save = x
+            break
+    else:
+        return None
+    for x in range(len(default.config[1][save][0])):
+        if default.config[1][save][0][x] == setting:
+            return default.config[1][save][1][x]
+    else:
+        return None
 
 def _create_default_config_ini(default, collection=None, legacy=1):
     '''
@@ -159,35 +205,7 @@ def create_default_config(default_config_module_path=os.path.join(os.path.dirnam
     '''
     Main "head", what is working with _create_default_config_<type>
     '''
-    legacy = 0
-    arr = importer(os.path.join(os.path.dirname(__file__), "collections.py"), 'collection')
-    if arr[0]:
-        collection = arr[1]
-    else:
-        legacy = 1
-    del(arr)
-    arr = importer(default_config_module_path, "default")
-    if arr[0]:
-        default = arr[1]
-    else:
-        try:
-            os.makedirs(os.path.join(os.path.dirname(__file__), "config"))
-        except:
-            if not legacy:
-                collection.debugger("Cannot create dir '{0}': File exists".format(os.path.join(os.path.dirname(__file__), "config")))
-        try:
-            with open(default_config_module_path, "x") as f:
-                f.close()
-        except:
-            if not legacy:
-                collection.exceptor()
-            else:
-                raise Exception()
-        if not legacy:
-            collection.exceptor(f"Cannot load default configuration: setup new configuration in '{default_config_module_path}' at yourself", type="ImportError", thread="config/create_default_config")
-        else:
-            raise ImportError(f"Cannot load default configuration: setup new configuration in '{default_config_module_path}' at yourself")
-    del(arr)
+    default, collection, legacy = _import_necessary(default_config_module_path)
     answer = None
     if default.DEFAULT_CONFIG_TYPE == "ini":
         answer = _create_default_config_ini(default, collection, legacy)
@@ -201,42 +219,14 @@ def create_default_config(default_config_module_path=os.path.join(os.path.dirnam
             else:
                 raise Exception("Error with creating config!")
 
-def _read_default_config_ini(section: str, setting: str, default, collection=None, legacy=1):
-    pass
+def _read_default_config_ini(section: str, setting: str, default: ModuleType, collection=None, legacy=1):
+    return get_default(default, ".".join([section, setting]))
 
 def read_default_config(config_string: str, default_config_module_path=os.path.join(os.path.dirname(__file__), "config", "default.py")):
     '''
     Main "head", what works with _read_default_config_<type>
     '''
-    legacy = 0
-    arr = importer(os.path.join(os.path.dirname(__file__), "collections.py"), "collection")
-    if arr[0]:
-        collection = arr[1]
-    else:
-        legacy = 1
-    del(arr)
-    arr = importer(default_config_module_path, "default")
-    if arr[0]:
-        default = arr[1]
-    else:
-        try:
-            os.makedirs(os.path.join(os.path.dirname(__file__), "config"))
-        except:
-            if not legacy:
-                collection.debugger("Cannot create dir '{0}': File exists".format(os.path.join(os.path.dirname(__file__), "config")))
-        try:
-            with open(default_config_module_path, "x") as f:
-                f.close()
-        except:
-            if not legacy:
-                collection.exceptor()
-            else:
-                raise Exception()
-        if not legacy:
-            collection.exceptor(f"Cannot load default configuration: setup new configuration in '{default_config_module_path}' at yourself", type="ImportError", thread="config/create_default_config")
-        else:
-            raise ImportError(f"Cannot load default configuration: setup new configuration in '{default_config_module_path}' at yourself")
-    del(arr)
+    default, collection, legacy = _import_necessary(default_config_module_path)
     answer = None
     if default.DEFAULT_CONFIG_TYPE == "ini":
         section, setting, *other = config_string.lstrip().rstrip().split(".")
