@@ -1,23 +1,25 @@
 #!/usr/bin/env python3.9
 from copy import deepcopy
-import hashlib
-import math
 import os
 import sys
-import uuid
 
 from .plugins import collections, config
 from .utils import cacher, paths, snapshot, default
 
 
-def _check_consistent(filename: str, byte_file: str, hash_file: str, byte_arr: list):
+def _check_consistent(filename: str, _uuid: str, byte_arr: list):
     try:
+        exist, data = cacher.get_cache_data_by_uuid(_uuid)
+        if exist:
+            hash_file, byte_file = data
+        else:
+            collections.exceptor(f"No found file with this uuid {_uuid}!", short=True)
         check_hash = 0
         hash_cached = " "
         hash_real = " "
         byte_array_cached = []
-        byte_array_real = []
         byte_array_real = snapshot.get_bytes_from_file(filename, byte_arr)
+        collections.debugger(f"Getting bytes from file: {byte_file}", use_time=False, short=True)
         with open(byte_file, "rb") as f:
             _bytes = f.read()
             for x in range(len(_bytes)):
@@ -34,6 +36,7 @@ def _check_consistent(filename: str, byte_file: str, hash_file: str, byte_arr: l
         else:
             check_hash = 1
         if check_hash:
+            collections.debugger(f"Checking hash, because bits is broken: {hash_file}", use_time=False, short=True)
             with open(hash_file) as f:
                 hash_cached = f.readline().rstrip().lstrip()
                 f.close()
@@ -50,51 +53,63 @@ def main(_path):
     bitsdir = paths.DEFAULT_CACHE_COPY_DIR
     hashdir = paths.DEFAULT_CACHE_HASH_DIR
     cached = []
+    uuids = []
     byte_arr = [73, 76, 485, 35, 456]
+    
     for root, dirs, files in os.walk(_path):
         collections.debugger("In main: ", [root, files], use_time=False)
         for x in range(len(files)):
-            cur_file = os.path.join(root, files[x])
-            collections.debugger("Current file:", [cur_file], use_time=False)
-            found, data = cacher.find_in_cache(cur_file)
-            if found:
-                consistent = _check_consistent(cur_file, data[2], data[1], byte_arr)
-                if consistent:
-                    cached.append(cur_file)
+            cached.append(os.path.join(root, files[x]))
+
+    collections.debugger("Working on cache!", use_time=False, short=True)
+    for x in range(len(cached)):
+        tryings = 0
+        try:
+            collections.debugger(f"Trying: ", [tryings], use_time=False, short=True)
+            collections.debugger("Finding file: ", [cached[x]], use_time=False, short=True)
+            exist, _uuid = cacher.find_in_cache(cached[x])
+            consistent = False
+            if exist:
+                collections.debugger("It exist", use_time=False, short=True)
+                if _check_consistent(cached[x], _uuid, byte_arr):
+                    collections.debugger("It good", use_time=False, short=True)
+                    uuids.append(_uuid)
                 else:
-                    cacher.del_from_cache(data[3])
-                    cacher.add_to_cache(cur_file, byte_arr)
-                    cached.append(cur_file)
+                    collections.debugger("It bad", use_time=False, short=True)
+                    consistent = False
             else:
-                cacher.add_to_cache(cur_file, byte_arr)
-                cached.append(cur_file)
+                collections.debugger("It not exist", use_time=False, short=True)
+                consistent = False
+            if not consistent:
+                collections.debugger("Deleting it!", use_time=False, short=True)
+                cacher.del_from_cache(_uuid)
+                collections.debugger(f"Adding it with args: {cached[x]}, {byte_arr}", use_time=False, short=True) 
+                _uuid = cacher.add_to_cache(cached[x], byte_arr)
+                tryings += 1
+        except Exception as e:
+            collections.exceptor(f"Cannot setup cache: {str(e)}", type=NotImplementedError, short=True, exception_do=2)
+    
     dublicates = []
-    filtered = deepcopy(cached)
-    appromated = len(cached)
-    while x < appromated:
+    filtered = deepcopy(uuids)
+    while len(filtered) > 0:
         selected = filtered[0]
+        collections.debugger(f"Selected uuid: {selected}", use_time=False, short=True)
         other = deepcopy(filtered[1:])
-        booled, arr = cacher.find_in_cache(selected)
-        if booled:
-            hashsum = default.get_line_from_file(arr[1]).lower()
-        else:
-            cacher.del_from_cache(selected)
-            cacher.add_to_cache(selected, byte_arr)
-            booled, arr = cacher.find_in_cache(selected)
-            if not booled:
-                collections.exceptor("Cannot determine a file rewriting!", short=True, exception_do=2)
+        arr = cacher.get_cache_data_by_uuid(selected)
+        collections.debugger(f"It data: {arr}", use_time=False, short=True)
+        hashsum = default.get_line_from_file(arr[0]).lower()
         dublicates_for_this = []
         for y in range(len(other)):
-            other_bool, other_data = cacher.find_in_cache(other[y])
-            other_hashsum = default.get_line_from_file(other_data[1]).lower()
+            other_arr = cacher.get_cache_data_by_uuid(other[y])
+            other_hashsum = default.get_line_from_file(other_arr[0]).lower()
             if hashsum == other_hashsum:
-                dublicates_for_this.append(other_data[0])
+                collections.debugger(f"Is dublicate with uuid: {other_arr[0]}\nFilename: {cacher.get_cache_name_by_uuid(other_arr[0])}", use_time=False, short=True)
+                dublicates_for_this.append(cacher.get_cache_name_by_uuid(other_arr[0]))
         dublicates.append(deepcopy(dublicates_for_this))
         for x in range(len(dublicates_for_this)):
             f = filtered.index(dublicates_for_this[x])
+            collections.debugger(f"Deleting uuid from filter: {dublicates_for_this[x]}", use_time=False, short=True)
             filtered.pop(f)
-        appromated -= len(dublicates_for_this)
-        x += 1
     for x in range(len(dublicates)):
         collections.info(f"Dublicates of file '{dublicates[x][0]}': \n{dublicates[x][1:]}", short=True)
 

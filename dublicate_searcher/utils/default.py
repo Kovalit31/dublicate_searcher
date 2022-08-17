@@ -18,3 +18,7 @@ def get_line_from_file(file: str):
         data = opened_file.readline().lstrip().rstrip()
         opened_file.close()
     return data
+
+def strip_unneeded(string: str, what_strip: str):
+    a = string.split(what_strip)
+    return "".join(a)

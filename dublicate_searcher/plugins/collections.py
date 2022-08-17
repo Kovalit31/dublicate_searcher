@@ -3,9 +3,12 @@ import time
 
 DEBUG = True
 
-def debugger(message: str, objects=[], thread=None, use_time=True):
+def debugger(message: str, objects=[], thread=None, use_time=True, short=False):
     global DEBUG
-    start = "[DEBUG]"
+    if short:
+        start = "[D]"
+    else:
+        start = "[DEBUG]"
     if not thread == None:
         start += "[" + str(thread).upper() + "]"
     if DEBUG:
@@ -13,7 +16,7 @@ def debugger(message: str, objects=[], thread=None, use_time=True):
             e_time = "[" + str(time.ctime()) + "]"
         else:
             e_time = ""
-        msg = f"\n{start}{e_time}: " + message
+        msg = f"{start}{e_time}: " + message
         for x in range(len(objects)):
             _temp_type = type(objects[x])
             _temp_len = None
@@ -27,7 +30,7 @@ def debugger(message: str, objects=[], thread=None, use_time=True):
 
 def exceptor(message: str, type=Exception, thread=None, short=False, use_time=False, exception_do=0):
     if short:
-        start = "[@]"
+        start = "[E]"
     else:
         start = "[ERROR]"
     if use_time:
@@ -47,7 +50,7 @@ def exceptor(message: str, type=Exception, thread=None, short=False, use_time=Fa
 
 def info(message: str, thread=None, short=False, use_time=False):
     if short:
-        start = "[*]"
+        start = "[I]"
     else:
         start = "[INFO]"
     if use_time:
