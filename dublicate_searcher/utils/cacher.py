@@ -93,6 +93,8 @@ def del_from_cache(file_uuid: str):
         second_dir = file_uuid[2:]
         hashsum_file = os.path.normpath(default.get_line_from_file(os.path.join(path, first_dir, second_dir, "hashfile")))
         bits_file = os.path.normpath(default.get_line_from_file(os.path.join(path, first_dir, second_dir, "bitsfile")))
+        os.remove(os.path.join(path, first_dir, second_dir, "bitsfile"))
+        os.remove(os.path.join(path, first_dir, second_dir, "hashfile"))
         os.remove(os.path.join(paths.DEFAULT_CACHE_HASH_DIR, hashsum_file[:2], hashsum_file[2:]))
         os.remove(os.path.join(paths.DEFAULT_CACHE_COPY_DIR, bits_file[:2], bits_file[2:]))
         os.remove(os.path.join(path, first_dir, second_dir, "filename"))
@@ -122,10 +124,14 @@ def find_in_cache(file: str):
                 collections.debugger(f"Working on '{meta_objects[x] + temp_files[y]}'", use_time=False)
                 name = " "
                 if_found = 0
-                with open(os.path.join(metadir, meta_objects[x], temp_files[y], "filename")) as f:
-                    name = f.readline().lstrip().rstrip()
-                    f.close()
-                collections.debugger(f"Found filename '{name}'", use_time=False)
+                try:
+                    with open(os.path.join(metadir, meta_objects[x], temp_files[y], "filename")) as f:
+                        name = f.readline().lstrip().rstrip()
+                        f.close()
+                        collections.debugger(f"Found filename '{name}'", use_time=False)
+                except:
+                    collections.debugger(f"File with uuid '{meta_objects[x] + temp_files[y]}' not found in cache!", short=True, use_time=False)
+                    
                 if name == file:
                     collections.debugger(f"FOUND file '{file}'", use_time=False)
                     if_found = 1
