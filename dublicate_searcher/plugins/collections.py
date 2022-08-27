@@ -1,7 +1,7 @@
 import os, sys
 import time
 
-DEBUG = True
+DEBUG = False
 ERROR = True
 INFO = True
 
