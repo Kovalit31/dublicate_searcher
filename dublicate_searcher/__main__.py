@@ -48,15 +48,17 @@ def main(_path):
     cached = []
     uuids = []
     byte_arr = [73, 76, 485, 35, 456]
-    
     for root, dirs, files in os.walk(_path):
         collections.debugger("In main: ", [root, files], use_time=False)
         for x in range(len(files)):
             cached.append(os.path.join(root, files[x]))
-
+    estimated = len(cached)
+    processed = 0
+    collections.info("It was caching and, if need, fixing cache...", short=True)
     collections.debugger("Working on cache!", use_time=False, short=True)
     for x in range(len(cached)):
         try:
+            collections.info(f"Processed {processed} from {estimated}...", short=True)
             collections.debugger("Finding file: ", [cached[x]], use_time=False, short=True)
             exist, _uuid = cacher.find_in_cache(cached[x])
             consistent = False
@@ -64,7 +66,6 @@ def main(_path):
                 collections.debugger("It exist", use_time=False, short=True)
                 if _check_consistent(_uuid, byte_arr):
                     collections.debugger("It good", use_time=False, short=True)
-                    uuids.append(_uuid)
                     consistent = True
                 else:
                     collections.debugger("It bad", use_time=False, short=True)
@@ -77,12 +78,18 @@ def main(_path):
                 cacher.del_from_cache(_uuid)
                 collections.debugger(f"Adding it with args: {cached[x]}, {byte_arr}", use_time=False, short=True) 
                 _uuid = cacher.add_to_cache(cached[x], byte_arr)
+            uuids.append(_uuid)
+            processed += 1
         except Exception as e:
             collections.exceptor(f"Cannot setup cache: {str(e)}", type=NotImplementedError, short=True, exception_do=2)
     
     dublicates = []
     filtered = deepcopy(uuids)
+    est = len(filtered)
+    did = 0
+    collections.info("It was finding dublicates...")
     while len(filtered) > 0:
+        collections.info(f"Processed {did} from {est}...", short=True)
         selected = filtered[0]
         collections.debugger(f"Selected uuid: {selected}", use_time=False, short=True)
         other = deepcopy(filtered[0:])
@@ -100,6 +107,7 @@ def main(_path):
                 dublicates_for_this.append(other[y])
         dublicates.append(deepcopy(dublicates_for_this))
         for x in range(len(dublicates_for_this)):
+            did += 1
             f = filtered.index(dublicates_for_this[x])
             collections.debugger(f"Deleting uuid from filter: {dublicates_for_this[x]}", use_time=False, short=True)
             filtered.pop(f)

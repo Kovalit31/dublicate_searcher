@@ -1,7 +1,17 @@
-import sys
+import os, sys
 import time
 
 DEBUG = True
+ERROR = True
+INFO = True
+
+def log(msg: str, type: str):
+    path = os.path.join(os.path.dirname(__file__), str(os.path.basename(__file__)) + "_data")
+    os.makedirs(path, exist_ok=True)
+    file = os.path.join(path, type + "s.log")
+    with open(file, "a") as f:
+        f.write(msg + "\n")
+        f.close()
 
 def debugger(message: str, objects=[], thread=None, use_time=True, short=False):
     global DEBUG
@@ -26,7 +36,8 @@ def debugger(message: str, objects=[], thread=None, use_time=True, short=False):
                 _temp_len = "<cannot calculate on unusual type>"
             _temp_content = objects[x]
             msg += f"\n{start}{e_time}: Object {x} type: {_temp_type}, len: {_temp_len}, contents: {_temp_content}"
-        print(msg) 
+        print(msg)
+    log(msg, "debug_log")
 
 def exceptor(message: str, type=Exception, thread=None, short=False, use_time=False, exception_do=0):
     if short:
@@ -39,7 +50,9 @@ def exceptor(message: str, type=Exception, thread=None, short=False, use_time=Fa
         e_time = ""
     if not thread == None:
         start += "[" + str(thread).upper() + "]"
-    print(f"{start}{e_time}[{str(type).upper()}]: {message}")
+    if ERROR:
+        print(f"{start}{e_time}[{str(type).upper()}]: {message}")
+    log(f"{start}{e_time}[{str(type).upper()}]: {message}", "error")
     if exception_do == 0:
         sys.exit()
     if exception_do == 1:
@@ -59,6 +72,8 @@ def info(message: str, thread=None, short=False, use_time=False):
         e_time = ""
     if not thread == None:
         start += "[" + str(thread).upper() + "]"
-    text = message.split("\n")
-    for x in range(len(text)):
-        print(f"{start}{e_time}: {text[x]}")
+    message.replace("\n", f"\n{start}{e_time}: ")
+    if INFO:
+        print(f"{start}{e_time}: {message}")
+    log(f"{start}{e_time}: {message}", "info_log")
+   
