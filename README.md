@@ -4,16 +4,7 @@
 Search dublicates in setted directory
 
 ## How works
-Enter directory
-       |
-       V
-Caching files on it
-       |
-       V
-Read cache and getting dublicates
-       |
-       V
-Write dublicates paths on STDOUT
+Enter directory -> Caching files on it -> Read cache and getting dublicates -> Write dublicates paths on STDOUT
 
 ### Enter directory
 This step will be anytime, when you start a programm
