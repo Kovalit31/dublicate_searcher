@@ -12,10 +12,10 @@ def makedir(dir: str):
     else:
         return True
 
-def get_line_from_file(file: str):
+def get_line_from_file(file: str, line: int):
     data = " "
     with open(file) as opened_file:
-        data = opened_file.readline().lstrip().rstrip()
+        data = opened_file.readlines()[line].lstrip().rstrip()
         opened_file.close()
     return data
 

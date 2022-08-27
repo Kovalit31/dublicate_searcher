@@ -37,44 +37,22 @@ def _add_to_cache__create_file(path: str):
 
 def add_to_cache(file: str, byte_arr: list): # BUG: files is creating randomly!
     uid = _add_to_cache__gen_uuid(paths.DEFAULT_CACHE_META_DIR)
-    collections.debugger(f"Creating 'filename' structure with uuid {uid}...", use_time=False)
-    filename = _add_to_cache__create_file(os.path.join(paths.DEFAULT_CACHE_META_DIR, uid[:2], uid[2:], "filename"))
+    buid = _add_to_cache__gen_uuid(paths.DEFAULT_CACHE_COPY_DIR)
+    collections.debugger(f"Creating meta structure with uuid {uid}...", use_time=False)
+    filename = _add_to_cache__create_file(os.path.join(paths.DEFAULT_CACHE_META_DIR, uid[:2], uid[2:]))
     while True:
+        lines = []
+        lines.append(file)
+        lines.append(snapshot.get_hash_from_file(file))
+        lines.append(buid)
         with open(filename, "w+") as opened:
-            opened.write(file)
+            for x in range(len(lines)):
+                opened.write(lines[x] + "\n")
             opened.close()
         if filename.exists():
             break
-    huid = _add_to_cache__gen_uuid(paths.DEFAULT_CACHE_HASH_DIR)
-    collections.debugger("Creating 'hashsum' structure...", use_time=False)
-    collections.debugger("Step 1: creating data in meta dir..")
-    hashfile_info = _add_to_cache__create_file(os.path.join(paths.DEFAULT_CACHE_META_DIR, uid[:2], uid[2:], "hashfile"))
-    hashfile = _add_to_cache__create_file(os.path.join(paths.DEFAULT_CACHE_HASH_DIR, huid[:2], huid[2:]))
-    while True:
-        with open(hashfile_info, "w+") as opened:
-            opened.write(huid)
-            opened.close()
-        if hashfile_info.exists():
-            break
-    collections.debugger("Step 2: creating data in hash dir..")
-    while True:
-        with open(hashfile, "w+") as opened:
-            opened.write(snapshot.get_hash_from_file(file))
-            opened.close()
-        if os.path.exists(hashfile):
-            break
-    buid = _add_to_cache__gen_uuid(paths.DEFAULT_CACHE_COPY_DIR)
-    collections.debugger("Creating 'bitsfile' structure...", use_time=False)
-    collections.debugger("Step 1: creating data in meta dir..")
-    bits_info = _add_to_cache__create_file(os.path.join(paths.DEFAULT_CACHE_META_DIR, uid[:2], uid[2:], "bitsfile"))
     bits =  _add_to_cache__create_file(os.path.join(paths.DEFAULT_CACHE_COPY_DIR, buid[:2], buid[2:]))
-    while True:
-        with open(bits_info, "w+") as opened:
-            opened.write(buid)
-            opened.close()
-        if os.path.exists(bits_info):
-            break
-    collections.debugger("Step 2: creating data in bits dir..")
+    collections.debugger("Creating data in bits dir..")
     while True:
         with open(bits, "wb+") as byte_opened:
             ret = snapshot.get_bytes_from_file(file, byte_arr)
@@ -84,24 +62,18 @@ def add_to_cache(file: str, byte_arr: list): # BUG: files is creating randomly!
         if os.path.exists(bits):
             break
     return uid
-        
+
 def del_from_cache(file_uuid: str):
     try:
         collections.debugger(f"It's deleting uuid: {file_uuid}", use_time=False, short=True)
-        path = paths.DEFAULT_CACHE_META_DIR
         first_dir = file_uuid[:2]
         second_dir = file_uuid[2:]
-        hashsum_file = os.path.normpath(default.get_line_from_file(os.path.join(path, first_dir, second_dir, "hashfile")))
-        bits_file = os.path.normpath(default.get_line_from_file(os.path.join(path, first_dir, second_dir, "bitsfile")))
-        os.remove(os.path.join(path, first_dir, second_dir, "bitsfile"))
-        os.remove(os.path.join(path, first_dir, second_dir, "hashfile"))
-        os.remove(os.path.join(paths.DEFAULT_CACHE_HASH_DIR, hashsum_file[:2], hashsum_file[2:]))
+        bits_file = os.path.join(default.get_line_from_file(os.path.join(paths.DEFAULT_CACHE_META_DIR, first_dir, second_dir), 2))
         os.remove(os.path.join(paths.DEFAULT_CACHE_COPY_DIR, bits_file[:2], bits_file[2:]))
-        os.remove(os.path.join(path, first_dir, second_dir, "filename"))
-        os.rmdir(os.path.join(path, first_dir, second_dir))
-        cache = os.listdir(os.path.join(path, first_dir))
+        os.remove(os.path.join(paths.DEFAULT_CACHE_META_DIR, first_dir, second_dir))
+        cache = os.listdir(os.path.join(paths.DEFAULT_CACHE_META_DIR, first_dir))
         if len(cache) == 0:
-            os.rmdir(os.path.join(path, first_dir))
+            os.rmdir(os.path.join(paths.DEFAULT_CACHE_META_DIR, first_dir))
         return True
     except Exception as e:
         collections.exceptor("Excepted deleting, because " + str(e), short=True, exception_do=1)
@@ -125,8 +97,8 @@ def find_in_cache(file: str):
                 name = " "
                 if_found = 0
                 try:
-                    with open(os.path.join(metadir, meta_objects[x], temp_files[y], "filename")) as f:
-                        name = f.readline().lstrip().rstrip()
+                    with open(os.path.join(metadir, meta_objects[x], temp_files[y])) as f:
+                        name = f.readlines()[0].lstrip().rstrip()
                         f.close()
                         collections.debugger(f"Found filename '{name}'", use_time=False)
                 except:
@@ -146,20 +118,14 @@ def find_in_cache(file: str):
 def get_cache_data_by_uuid(file_uuid: str):
     try:
         _temp = " "
-        hashfile = " "
+        hash = " "
         bitsfile = " "
         collections.debugger("Getting up 'hashsum'")
-        with open(os.path.join(paths.DEFAULT_CACHE_META_DIR, file_uuid[:2], file_uuid[2:], "hashsum")) as file:
-            _temp = file.readline().rstrip().lstrip()
-            file.close()
-        hashfile = os.path.join(paths.DEFAULT_CACHE_HASH_DIR, _temp[:2], _temp[2:])
-        collections.debugger("Getting up bits file...")
-        with open(os.path.join(paths.DEFAULT_CACHE_META_DIR, file_uuid[:2], file_uuid[2:], "bitsfile")) as file:
-            _temp = file.readline().rstrip().lstrip()
-            file.close()
+        hash = default.get_line_from_file(os.path.join(paths.DEFAULT_CACHE_META_DIR, file_uuid[:2], file_uuid[2:]), 1)
+        _temp = default.get_line_from_file(os.path.join(paths.DEFAULT_CACHE_META_DIR, file_uuid[:2], file_uuid[2:]), 2)
         bitsfile = os.path.join(paths.DEFAULT_CACHE_COPY_DIR, _temp[:2], _temp[2:])
         returning = []
-        returning.append(hashfile)
+        returning.append(hash)
         returning.append(bitsfile)
         return True, returning
     except Exception as e:
@@ -168,9 +134,6 @@ def get_cache_data_by_uuid(file_uuid: str):
     
 def get_cache_name_by_uuid(_uuid: str):
     collections.debugger(f"Getting name by uuid: {_uuid}", use_time=False, short=True)
-    path = os.path.join(paths.DEFAULT_CACHE_META_DIR, _uuid[:2], _uuid[2:], "filename")
-    returned = " "
-    with open(path) as file:
-        returned = file.readline().lstrip().rstrip()
-        file.close()
+    path = os.path.join(paths.DEFAULT_CACHE_META_DIR, _uuid[:2], _uuid[2:])
+    returned = default.get_line_from_file(os.path.join(paths.DEFAULT_CACHE_META_DIR, _uuid[:2], _uuid[2:]), 0)
     return returned
