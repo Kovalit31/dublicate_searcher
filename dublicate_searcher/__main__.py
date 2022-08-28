@@ -4,120 +4,122 @@ import os
 import sys
 
 from .plugins import collections, config
-from .utils import cacher, paths, snapshot, default
+from .utils import cacher, paths, snapshot
 
 
 def _check_consistent(_uuid: str, byte_arr: list):
     try:
-        exist, data = cacher.get_cache_data_by_uuid(_uuid)
-        if exist:
-            hash_cached, byte_file = data
+        exists_in_cache, data_from_cache = cacher.get_cache_data_by_uuid(_uuid)
+        if exists_in_cache:
+            cached_hashsum, byte_file = data_from_cache
         else:
-            collections.exceptor(f"No found file with this uuid {_uuid}!", short=True)
-        check_hash = 0
-        file = cacher.get_cache_name_by_uuid(_uuid)
+            collections.exceptor(f"No found file with this uuid {_uuid}!", short=True, exception_do=2)
+        need_to_check_hash = 0
+        file_path = cacher.get_cached_path_by_uuid(_uuid)
         hash_real = " "
-        byte_array_cached = []
-        byte_array_real = snapshot.get_bytes_from_file(file, byte_arr)
+        bytes_cached = []
+        bytes_real = snapshot.get_bytes_from_file(file_path, byte_arr)
         collections.debugger(f"Getting bytes from file: {byte_file}", use_time=False, short=True)
-        with open(byte_file, "rb") as f:
-            _bytes = f.read()
-            for x in range(len(_bytes)):
-                byte_array_cached.append(_bytes[x])
-            f.close()
-        if len(byte_array_cached) == len(byte_array_real):
-            for x in range(len(byte_array_real)):
-                if not byte_array_real[x] == byte_array_cached[x]:
-                    check_hash = 1
+        with open(byte_file, "rb") as opened_byte_file:
+            opened_byte_file_length = len(bytearray(opened_byte_file.read()))
+            for x in range(len(opened_byte_file_length)):
+                opened_byte_file.seek(x + 1)
+                bytes_cached.append(opened_byte_file.read(1))
+        if len(bytes_cached) == len(bytes_real):
+            for x in range(len(bytes_real)):
+                if not bytes_real[x] == bytes_cached[x]:
+                    need_to_check_hash = 1
                     break
             else:
                 return True
         else:
-            check_hash = 1
-        if check_hash:
-            collections.debugger(f"Checking hash, because bits is broken: {file}", use_time=False, short=True)
-            hash_real = snapshot.get_hash_from_file(file)
-            if hash_cached.lstrip().rstrip().lower() == hash_real.lstrip().rstrip().lower():
+            need_to_check_hash
+        if need_to_check_hash:
+            collections.debugger(f"Checking hash, because bits is broken: {file_path}", use_time=False, short=True)
+            hash_real = snapshot.get_hash_from_file(file_path)
+            if cached_hashsum.strip().lower() == hash_real.strip().lower():
                 return True
             else:
                 return False
     except:
         return False
 
-def main(_path):
-    cached = []
-    uuids = []
+def main(_path: str):
+    files_will_cached = []
+    uuids_of_cached_files = []
     byte_arr = [73, 76, 485, 35, 456]
+    
     for root, dirs, files in os.walk(_path):
         collections.debugger("In main: ", [root, files], use_time=False)
         for x in range(len(files)):
-            cached.append(os.path.join(root, files[x]))
-    estimated = len(cached)
-    processed = 0
+            files_will_cached.append(os.path.join(root, files[x]))
+    
+    total_files_will_cached = len(files_will_cached)
+    total_files_is_cached = 0
+
     collections.info("It was caching and, if need, fixing cache...", short=True)
     collections.debugger("Working on cache!", use_time=False, short=True)
-    for x in range(len(cached)):
+
+    for file_will_cached_pos in range(len(files_will_cached)):
         try:
-            collections.info(f"Processed {processed} from {estimated}...", short=True)
-            collections.debugger("Finding file: ", [cached[x]], use_time=False, short=True)
-            exist, _uuid = cacher.find_in_cache(cached[x])
-            consistent = False
-            if exist:
+            collections.info(f"Processed {total_files_is_cached} from {total_files_will_cached}...", short=True)
+            collections.debugger("Finding file: ", [files_will_cached[file_will_cached_pos]], use_time=False, short=True)
+            exist_in_cache, cached_uuid = cacher.find_in_cache(files_will_cached[file_will_cached_pos])
+            cache_is_consistent = False
+            if exist_in_cache:
                 collections.debugger("It exist", use_time=False, short=True)
-                if _check_consistent(_uuid, byte_arr):
+                if _check_consistent(cached_uuid, byte_arr):
                     collections.debugger("It good", use_time=False, short=True)
-                    consistent = True
+                    cache_is_consistent = True
                 else:
                     collections.debugger("It bad", use_time=False, short=True)
-                    consistent = False
+                    cache_is_consistent = False
             else:
                 collections.debugger("It not exist", use_time=False, short=True)
-                consistent = False
-            if not consistent:
+                cache_is_consistent = False
+            if not cache_is_consistent:
                 collections.debugger("Deleting it!", use_time=False, short=True)
-                cacher.del_from_cache(_uuid)
-                collections.debugger(f"Adding it with args: {cached[x]}, {byte_arr}", use_time=False, short=True) 
-                _uuid = cacher.add_to_cache(cached[x], byte_arr)
-            uuids.append(_uuid)
-            processed += 1
+                cacher.del_from_cache(cached_uuid)
+                collections.debugger(f"Adding it with args: {files_will_cached[file_will_cached_pos]}, {byte_arr}", use_time=False, short=True) 
+                _uuid = cacher.add_to_cache(files_will_cached[file_will_cached_pos], byte_arr)
+            uuids_of_cached_files.append(cached_uuid)
+            total_files_is_cached += 1
         except Exception as e:
             collections.exceptor(f"Cannot setup cache: {str(e)}", type=NotImplementedError, short=True, exception_do=2)
     
-    dublicates = []
-    filtered = deepcopy(uuids)
-    est = len(filtered)
-    did = 0
+    found_dublicates = []
+    copy_of_uuids = deepcopy(uuids_of_cached_files)
+    total_uuids_count = len(copy_of_uuids)
     collections.info("It was finding dublicates...")
-    while len(filtered) > 0:
-        collections.info(f"Processed {did} from {est}...", short=True)
-        selected = filtered[0]
-        collections.debugger(f"Selected uuid: {selected}", use_time=False, short=True)
-        other = deepcopy(filtered[0:])
-        exist, arr = cacher.get_cache_data_by_uuid(selected)
-        hashsum = arr[0]
-        collections.debugger("It's data: ", [exist, arr, hashsum])
-        dublicates_for_this = []
-        collections.debugger("Arrays initialized: ", [filtered, other])
-        for y in range(len(other)):
-            exist_other, other_arr = cacher.get_cache_data_by_uuid(other[y])
-            other_hashsum = other_arr[0]
-            collections.debugger("Getting other uuid data: ", [exist_other, other_arr, other_hashsum])
-            if hashsum == other_hashsum:
-                collections.debugger(f"Is dublicate with uuid: {other[y]}\nFilename: {cacher.get_cache_name_by_uuid(other[y])}", use_time=False, short=True)
-                dublicates_for_this.append(other[y])
-        dublicates.append(deepcopy(dublicates_for_this))
-        for x in range(len(dublicates_for_this)):
-            did += 1
-            f = filtered.index(dublicates_for_this[x])
-            collections.debugger(f"Deleting uuid from filter: {dublicates_for_this[x]}", use_time=False, short=True)
-            filtered.pop(f)
+    while len(copy_of_uuids) > 0:
+        collections.info(f"Processed {total_uuids_count - len(copy_of_uuids)} from {total_uuids_count}...", short=True)
+        selected_uuid = copy_of_uuids[0]
+        collections.debugger(f"Selected uuid: {selected_uuid}", use_time=False, short=True)
+        other_uuids = deepcopy(copy_of_uuids[0:])
+        exist_sel_uuid_in_cache, data_from_sel_cache = cacher.get_cached_data_by_uuid(selected_uuid)
+        sel_cached_file_hashsum = data_from_sel_cache[0]
+        collections.debugger("It's data: ", [exist_sel_uuid_in_cache, data_from_sel_cache, sel_cached_file_hashsum])
+        dublicates_for_selected_uuid = []
+        collections.debugger("Arrays initialized: ", [copy_of_uuids, other_uuids])
+        for other_uuid in range(len(other_uuids)):
+            exist_other_uuid_in_cache, other_uuid_data_from_cache = cacher.get_cached_data_by_uuid([other_uuid])
+            other_cached_file_hashsum = other_uuid_data_from_cache[0]
+            collections.debugger("Getting other uuid data: ", [exist_other_uuid_in_cache, other_uuid_data_from_cache, other_cached_file_hashsum])
+            if sel_cached_file_hashsum == other_cached_file_hashsum:
+                collections.debugger(f"Is dublicate with uuid: {other_uuids[other_uuid]}\nFilename: {cacher.get_cached_path_by_uuid(other_uuids[other_uuid])}", use_time=False, short=True)
+                dublicates_for_selected_uuid.append(other_uuids[other_uuid])
+        found_dublicates.append(deepcopy(dublicates_for_selected_uuid))
+        for dublicate_uuid in range(len(dublicates_for_selected_uuid)):
+            uuid_index = copy_of_uuids.index(dublicates_for_selected_uuid[dublicate_uuid])
+            collections.debugger(f"Deleting uuid from filter: {dublicates_for_selected_uuid[dublicate_uuid]}", use_time=False, short=True)
+            copy_of_uuids.pop(uuid_index)
     array_humaned = []
-    for x in range(len(dublicates)):
+    for dublicates in range(len(found_dublicates)):
         array_humaned.append([])
-        for y in range(len(dublicates[x])):
-            array_humaned[x].append(cacher.get_cache_name_by_uuid(dublicates[x][y]))
-    for x in range(len(array_humaned)):
-        collections.info(f"Dublicates for file {array_humaned[x][0]}: {array_humaned[x][1:]}", short=True)
+        for dublicate in range(len(found_dublicates[dublicates])):
+            array_humaned[x].append(cacher.get_cached_path_by_uuid(found_dublicates[dublicates][dublicate]))
+    for dublicates_arr_humaned_pos in range(len(array_humaned)):
+        collections.info(f"Dublicates for file {array_humaned[dublicates_arr_humaned_pos][0]}: {array_humaned[dublicates_arr_humaned_pos][1:]}", short=True)
  
 if __name__ == "__main__":
     if len(sys.argv) < 2:
