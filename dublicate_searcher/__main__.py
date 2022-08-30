@@ -102,7 +102,7 @@ def main(_path: str):
         dublicates_for_selected_uuid = []
         collections.debugger("Arrays initialized: ", [copy_of_uuids, other_uuids])
         for other_uuid in range(len(other_uuids)):
-            exist_other_uuid_in_cache, other_uuid_data_from_cache = cacher.get_cached_data_by_uuid([other_uuid])
+            exist_other_uuid_in_cache, other_uuid_data_from_cache = cacher.get_cached_data_by_uuid(other_uuid)
             other_cached_file_hashsum = other_uuid_data_from_cache[0]
             collections.debugger("Getting other uuid data: ", [exist_other_uuid_in_cache, other_uuid_data_from_cache, other_cached_file_hashsum])
             if sel_cached_file_hashsum == other_cached_file_hashsum:
