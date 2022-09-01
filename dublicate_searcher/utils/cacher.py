@@ -1,13 +1,19 @@
-from typing import Union, Tuple
 import os
 import uuid
 import pathlib
 
 from ..plugins import collections
-from . import paths, snapshot, strip_unneeded, makedir, get_line_from_file
+from . import paths, snapshot, hash, strip_unneeded, makedir, get_line_from_file
 
 def create_cache_dirs() -> list:
-    return []
+    metadir = paths.DEFAULT_CACHE_META_DIR
+    bytesdir = paths.DEFAULT_CACHE_COPY_DIR
+    makedir(metadir)
+    makedir(bytesdir)
+    return_arr = []
+    return_arr.append(metadir)
+    return_arr.append(bytesdir)
+    return return_arr
 
 def _uuids_in_cache(section: str) -> list:
     collections.debugger(f"Getting used uuids", use_time=False, short=True)
@@ -29,7 +35,7 @@ def _add_to_cache__gen_uuid(path: str) -> str:
             pass
     return _uuid
 
-def _add_to_cache__create_file(path: str) -> Union(str, bool):
+def _add_to_cache__create_file(path: str):
     try:
         filename = pathlib.Path(path)
         filename.parent.mkdir(parents=True, exist_ok=True)
@@ -38,8 +44,18 @@ def _add_to_cache__create_file(path: str) -> Union(str, bool):
     except:
         return False
 
+def _add_to_cache__as_hashsum(file_path: str, section_path: str):
+    available_shas = hash.get_sha_v1_avialables()
+    for x in range(len(available_shas)):
+        path_hashsum = hash.get_sha(file_path.encode("utf-8"), sha_len=available_shas[x])
+        if not path_hashsum in _uuids_in_cache(section_path):
+            return path_hashsum
+    else:
+        raise NotImplementedError("Cannot do a unusual hashsum, because all hashsums is already containing!")
+        
+
 def add_to_cache(file_path_for_caching: str, byte_arr: list) -> str:
-    meta_uuid = _add_to_cache__gen_uuid(paths.DEFAULT_CACHE_META_DIR)
+    meta_uuid = _add_to_cache__as_hashsum(file_path_for_caching, paths.DEFAULT_CACHE_META_DIR)
     bytes_uuid = _add_to_cache__gen_uuid(paths.DEFAULT_CACHE_COPY_DIR)
     collections.debugger(f"Creating meta structure with uuid {meta_uuid}...", use_time=False)
     meta_file = _add_to_cache__create_file(os.path.join(paths.DEFAULT_CACHE_META_DIR, meta_uuid[:2], meta_uuid[2:]))
@@ -83,53 +99,45 @@ def del_from_cache(cached_file_uuid: str) -> bool:
         return False
     
 
-def find_in_cache(file_path: str) -> Union(Tuple(bool, str), Tuple(bool, None)):
-    metadir = paths.DEFAULT_CACHE_META_DIR
-    bitsdir = paths.DEFAULT_CACHE_COPY_DIR
-    makedir(metadir)
-    makedir(bitsdir)
+def find_in_cache(file_path: str):
+    metadir, no_req = create_cache_dirs()
     try:
-        firsts_symbols = os.listdir(metadir)
-        for first_symbols in range(len(firsts_symbols)):
-            seconds_symbols = os.listdir(os.path.join(metadir, firsts_symbols[first_symbols]))
-            for second_symbols in range(len(seconds_symbols)):
-                collections.debugger(f"Working on '{firsts_symbols[first_symbols] + seconds_symbols[second_symbols]}'", use_time=False)
-                cached_file_path = " "
-                found = 0
-                try:
-                    with open(os.path.join(metadir, firsts_symbols[first_symbols], seconds_symbols[second_symbols])) as f:
-                        cached_file_path = f.readlines()[0].strip()
-                        f.close()
-                        collections.debugger(f"Found filename '{cached_file_path}'", use_time=False)
-                except:
-                    collections.debugger(f"File with uuid '{firsts_symbols[first_symbols] + seconds_symbols[second_symbols]}' not found in cache!", short=True, use_time=False)
-                if cached_file_path == file_path:
-                    collections.debugger(f"FOUND file '{file_path}'", use_time=False)
-                    found = 1
-                if found:
-                    return True, firsts_symbols[first_symbols] + seconds_symbols[second_symbols]
+        available_shas = hash.get_sha_v1_avialables()
+        for x in range(len(available_shas)):
+            path_hashsum = hash.get_sha(file_path.encode("utf-8"), sha_len=available_shas[x])
+            try:
+                cached_path = get_line_from_file(os.path.join(metadir, path_hashsum[:2], path_hashsum[2:]), 0)
+            except:
+                cached_path = " "
+            if cached_path == file_path:
+                return True, path_hashsum
         else:
             return False, None
     except Exception as e:
         collections.exceptor("Cannot do latest job, because raised: " + str(e), short=True, exception_do=1)
-        return False, firsts_symbols[first_symbols] + seconds_symbols[second_symbols]
+        return False, None
 
-def get_cached_data_by_uuid(cached_file_uuid: str) -> Tuple(bool, list):
-    try:
+def get_cached_data_by_uuid(cached_file_uuid: str):
+    # try:
         bytes_file_uuid = " "
         cached_file_hashsum = " "
         bytes_file_path = " "
         collections.debugger("Getting up 'hashsum'")
-        cached_file_hashsum = get_line_from_file(os.path.join(paths.DEFAULT_CACHE_META_DIR, cached_file_uuid[:2], cached_file_uuid[2:]), 1)
+        _temp = []
+        with open(os.path.join(paths.DEFAULT_CACHE_META_DIR, cached_file_uuid[:2], cached_file_uuid[2:])) as f: # Interpreter do error here: TypeError: 'int' object isnot subscriptable
+            _temp = f.readlines()
+            f.close()
+        cached_file_hashsum = _temp[1].strip()
+        # cached_file_hashsum = get_line_from_file(os.path.join(paths.DEFAULT_CACHE_META_DIR, cached_file_uuid[:2], cached_file_uuid[2:]), 1)
         bytes_file_uuid = get_line_from_file(os.path.join(paths.DEFAULT_CACHE_META_DIR, cached_file_uuid[:2], cached_file_uuid[2:]), 2)
         bytes_file_path = os.path.join(paths.DEFAULT_CACHE_COPY_DIR, bytes_file_uuid[:2], bytes_file_uuid[2:])
         return_arr = []
         return_arr.append(cached_file_hashsum)
         return_arr.append(bytes_file_path)
         return True, return_arr
-    except Exception as e:
-        collections.exceptor("Problem to get data: " + str(e), short=True, exception_do=1)
-        return False, []
+    # except Exception as e:
+    #     collections.exceptor("Problem to get data: " + str(e), short=True, exception_do=1)
+    #     return False, []
     
 def get_cached_path_by_uuid(cached_file_uuid: str) -> str:
     collections.debugger(f"Getting name by uuid: {cached_file_uuid}", use_time=False, short=True)
